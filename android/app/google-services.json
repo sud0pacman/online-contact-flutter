@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "482957864164",
+    "project_id": "fluttercontact-4170b",
+    "storage_bucket": "fluttercontact-4170b.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:482957864164:android:ce1b43b81d54b1cbb8d0f1",
+        "android_client_info": {
+          "package_name": "com.example.online_contact_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbLIPd8X2x0WN1YUhtycadznTyK0gJtIk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:482957864164:android:3a0e6f7ca3b606c3b8d0f1",
+        "android_client_info": {
+          "package_name": "com.sudopacman.contact_f"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbLIPd8X2x0WN1YUhtycadznTyK0gJtIk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
