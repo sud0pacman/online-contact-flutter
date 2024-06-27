@@ -1,6 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:online_contact_app/src/block/contact/contacts_bloc.dart';
 import 'package:online_contact_app/src/data/local/constant.dart';
 import 'package:online_contact_app/src/data/local/contact_data.dart';
 import 'package:online_contact_app/src/data/model/my_pref.dart';
@@ -10,6 +11,18 @@ import 'package:online_contact_app/src/screens/sign_in/sign_in_screen.dart';
 import 'package:online_contact_app/src/screens/sign_up/sign_up_screen.dart';
 import 'package:online_contact_app/src/theme/LightColors.dart';
 
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => ContactsBloc(),
+      child: const ContactsScreen(),
+    );
+  }
+}
+
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
 
@@ -18,79 +31,65 @@ class ContactsScreen extends StatefulWidget {
 }
 
 class _ContactsScreenState extends State<ContactsScreen> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   late User? user;
   List<ContactData> contacts = [];
 
   @override
   void initState() {
     super.initState();
-    user = _auth.currentUser;
     _loadContacts();
   }
 
-  void _loadContacts() async {
-    if (user != null) {
-      var snapshot = await _firestore.collection('contacts').get();
-      print(snapshot);
-      contacts =
-          snapshot.docs.map((doc) => ContactData.fromMap(doc.data())).toList();
-      setState(() {});
-    }
+  void _loadContacts() {
+    context.read<ContactsBloc>().add(LoadContactsEvent());
   }
 
-  void _deleteContact(int index) async {
-    if (user != null) {
-      print(contacts[index].id);
-      var contactId = contacts[index].id;
-      await _firestore.collection('contacts').doc(contactId).delete();
-      _loadContacts();
-    }
+  void _deleteContact(ContactData contact) {
+    context.read<ContactsBloc>().add(DeleteContactEvent(contact));
   }
 
-  void _logoutContact() async {
-    await _auth.signOut();
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const SignInScreen()),
-      (Route<dynamic> route) => false,
-    );
-  }
-
-  void _deleteAccount() async {
-    if (user != null) {
-      await _firestore.collection('users').doc(user!.uid).delete();
-      await user!.delete();
-      _logoutContact();
-    }
+  void _logoutUser() {
+    context.read<ContactsBloc>().add(LogOutEvent());
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          backgroundColor: Colors.transparent,
-          title: myTitle(context),
-        ),
-        floatingActionButton: myActionButton(),
-        body: SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          child: Column(
-            children: [
-              for (int i = 0; i < contacts.length; i++)
-                contactItem(context, contacts[i], i)
-            ],
+    return BlocConsumer<ContactsBloc, ContactsState>(
+      listener: (context, state) {
+        if (state.back) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const SignInScreen()),
+            (Route<dynamic> route) => false,
+          );
+        }
+      },
+      builder: (context, state) {
+        return SafeArea(
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              automaticallyImplyLeading: false,
+              backgroundColor: Colors.transparent,
+              title: myTitle(context),
+            ),
+            floatingActionButton: myActionButton(context),
+            body: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: Column(
+                children: [
+                  for (int i = 0; i < state.contacts.length; i++)
+                    contactItem(context, state.contacts[i], i)
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget myActionButton() {
+  Widget myActionButton(BuildContext context) {
     return InkWell(
       onTap: () async {
         final newContact = await Navigator.push(
@@ -132,11 +131,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
     );
   }
 
-  Widget contactItem(
-    BuildContext context,
-    ContactData contact,
-    int index,
-  ) {
+  Widget contactItem(BuildContext context, ContactData contact, int index) {
     return Container(
       height: 56,
       width: double.infinity,
@@ -216,7 +211,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (context) =>
-                      EditContactScreen(contactData: contact, index: index),
+                      MyEditScreen(contactData: contact, index: index),
                 ),
               );
 
@@ -264,121 +259,131 @@ class _ContactsScreenState extends State<ContactsScreen> {
     );
   }
 
-  void _showLogOutDialog(
-    BuildContext context,
-  ) {
+  void _showLogOutDialog(BuildContext context) {
     final _pref = SharedPreferencesHelper();
     showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Image.asset(
+                "assets/images/logout.png",
+                height: 24,
+                width: 24,
+              ),
+              Text(
+                "Logout",
+                style: TextStyle(
+                  color: Lightcolors.greyText,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: "NunitoBold",
+                ),
+              ),
+              InkWell(
+                onTap: () {
+                  Navigator.pop(context); // Close the modal bottom sheet
+                },
+                child: Icon(
+                  Icons.cancel,
+                  color: Lightcolors.redButton,
+                  size: 24,
+                ),
+              )
+            ],
+          ),
+          content: Text(
+            "Do you want unregister or logout?",
+            style: TextStyle(
+              color: Lightcolors.greyText,
+              fontSize: 14,
+              fontFamily: "NunitoBold",
             ),
-            title: Row(
+          ),
+          actions: <Widget>[
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Image.asset(
-                  "assets/images/logout.png",
-                  height: 24,
-                  width: 24,
-                ),
-                Text(
-                  "Logout",
-                  style: TextStyle(
-                      color: Lightcolors.greyText,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: "NunitoBold"),
+                InkWell(
+                  onTap: () async {
+                    // _deleteAccount();
+                    _pref.setString(Constants.isVerified, "0");
+
+                    // MyPref.clear();
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SignUpScreen(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(
+                        color: Lightcolors.redButton,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    child: Text(
+                      "Unregister",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: "NunitoSemiBold",
+                        color: Lightcolors.redButton,
+                      ),
+                    ),
+                  ),
                 ),
                 InkWell(
                   onTap: () {
-                    Navigator.pop(context); // Close the modal bottom sheet
+                    _logoutUser();
+                    _pref.setString(Constants.isVerified, "1");
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SignInScreen(),
+                      ),
+                    );
                   },
-                  child: Icon(
-                    Icons.cancel,
-                    color: Lightcolors.redButton,
-                    size: 24,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Lightcolors.redButton,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    child: Text(
+                      "Logout",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: "NunitoSemiBold",
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 )
               ],
-            ),
-            content: Text(
-              "Do you want unregister or logout?",
-              style: TextStyle(
-                  color: Lightcolors.greyText,
-                  fontSize: 14,
-                  fontFamily: "NunitoBold"),
-            ),
-            actions: <Widget>[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  InkWell(
-                    onTap: () async {
-                      _deleteAccount();
-                      _pref.setString(Constants.isVerified, "0");
-
-                      // MyPref.clear();
-                      Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => SignUpScreen(),
-                          ));
-                    },
-                    child: Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(
-                              color: Lightcolors.redButton, width: 2),
-                          borderRadius: BorderRadius.all(Radius.circular(8))),
-                      child: Text(
-                        "Unregister",
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: "NunitoSemiBold",
-                            color: Lightcolors.redButton),
-                      ),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () {
-                      _logoutContact();
-                      _pref.setString(Constants.isVerified, "1");
-                      Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => SignInScreen(),
-                          ));
-                    },
-                    child: Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                          color: Lightcolors.redButton,
-                          borderRadius: BorderRadius.all(Radius.circular(8))),
-                      child: Text(
-                        "Logout",
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: "NunitoSemiBold",
-                            color: Colors.white),
-                      ),
-                    ),
-                  )
-                ],
-              )
-            ],
-          );
-        });
+            )
+          ],
+        );
+      },
+    );
   }
 
   void _showDeleteDialog(
-      BuildContext context, ContactData contactData, int index) {
+    BuildContext context,
+    ContactData contactData,
+    int index,
+  ) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -414,8 +419,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
             ElevatedButton(
               onPressed: () {
                 setState(() {
-                  contacts.removeAt(index); // Delete the contact
-                  _deleteContact(index);
+                  // contacts.removeAt(index); // Delete the contact
+                  _deleteContact(contactData);
                 });
                 Navigator.of(context).pop(); // Close the dialog
               },

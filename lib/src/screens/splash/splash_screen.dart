@@ -21,11 +21,12 @@ class _SplashScreenState extends State<SplashScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) {
-          var bool = _pref.getString(Constants.isVerified);
+          // _pref.clear();
+          var bool = _pref.getBool(Constants.isVerified);
           return bool == null
               ? const SignUpScreen()
-              : bool == "2"
-                  ? const ContactsScreen()
+              : bool
+                  ? const HomeScreen()
                   : const SignInScreen();
         }),
       );

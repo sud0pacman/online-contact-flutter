@@ -29,5 +29,9 @@ class SharedPreferencesHelper {
     return _prefs.clear();
   }
 
+  void clear() async{
+    await _prefs.clear();
+  }
+
 // Other methods remain the same...
 }

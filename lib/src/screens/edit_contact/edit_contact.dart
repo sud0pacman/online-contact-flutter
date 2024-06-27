@@ -1,9 +1,28 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:online_contact_app/src/block/edit/edit_bloc.dart';
 import 'package:online_contact_app/src/data/local/contact_data.dart';
 import 'package:online_contact_app/src/theme/LightColors.dart';
+
+
+class MyEditScreen extends StatelessWidget {
+  final ContactData contactData;
+  final int index;
+
+  const MyEditScreen({super.key, required this.contactData, required this.index});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => EditBloc(),
+      child: EditContactScreen(contactData: contactData, index: index),
+    );
+  }
+}
+
 
 class EditContactScreen extends StatefulWidget {
   final ContactData contactData;
@@ -22,8 +41,6 @@ class _EditContactScreenState extends State<EditContactScreen> {
   final TextEditingController _controller1 = TextEditingController();
   final TextEditingController _controller2 = TextEditingController();
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   bool showPassword = false;
 
@@ -37,93 +54,68 @@ class _EditContactScreenState extends State<EditContactScreen> {
   }
 
 
-  Future<void> _updateContact() async {
-    try {
-      final User? user = _auth.currentUser;
-      if (user != null) {
-        final contact = ContactData(
-          id: contactData.id,
-          name: _controller1.text,
-          phone: _controller2.text,
-          email: '', // Assuming email is not used here
-        );
-        await _firestore
-            .collection('contacts')
-            .doc(contact.id)
-            .update(contact.toMap());
-        Fluttertoast.showToast(
-          msg: "Edited successfully",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          timeInSecForIosWeb: 1,
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
-          fontSize: 16.0,
-        );
-        Navigator.pop(context, true);
-      }
-    } catch (error) {
-      Fluttertoast.showToast(
-        msg: "Failed to edit contact: $error",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-        timeInSecForIosWeb: 1,
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-        fontSize: 16.0,
-      );
-    }
+  Future<void> _updateContact(BuildContext context, ContactData contact) async {
+    context.read<EditBloc>().add(EditContactEvent(contact: contact));
   }
   
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(automaticallyImplyLeading: false,),
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-
-            const SizedBox(height: 70,),
-
-            Center(
-              child: Image.asset(
-                "assets/images/edit.png",
-                width: MediaQuery.of(context).size.width / 2.5,
-                height: MediaQuery.of(context).size.width / 2.5,
-              ),
+    return BlocConsumer<EditBloc, EditState>(
+      listener: (context, state) {
+        if(state.back) Navigator.pop(context, true);
+      },
+      builder: (context, state) {
+        return SafeArea(
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(automaticallyImplyLeading: false,),
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 70,),
+        
+                Center(
+                  child: Image.asset(
+                    "assets/images/edit.png",
+                    width: MediaQuery.of(context).size.width / 2.5,
+                    height: MediaQuery.of(context).size.width / 2.5,
+                  ),
+                ),
+        
+                const SizedBox(height: 56,),
+        
+                myTextField(
+                  _controller1,
+                  "Name"
+                ),
+        
+                const SizedBox(height: 16,),
+        
+                myTextField(
+                  _controller2,
+                  "Phone",
+                  inputType: TextInputType.phone
+                ),
+        
+                const SizedBox(height: 56,),
+                editBtn(context, contactData)
+              ],
             ),
-
-            const SizedBox(height: 56,),
-
-            myTextField(
-              _controller1,
-              "Name"
-            ),
-
-            const SizedBox(height: 16,),
-
-            myTextField(
-              _controller2,
-              "Phone",
-              inputType: TextInputType.phone
-            ),
-
-            const SizedBox(height: 56,),
-            editBtn()
-          ],
-        ),
-      ),
+          ),
+        );
+      }
     );
   }
 
-  Widget editBtn() {
+  Widget editBtn(BuildContext context, ContactData contactData) {
     return InkWell(
       onTap: () => {
         if(_controller1.text.isNotEmpty && _controller2.text.isNotEmpty) {
-          _updateContact()
+          _updateContact(
+            context, 
+            ContactData(id: contactData.id, name: _controller1.text, phone: _controller2.text, email: contactData.email),
+          )
         }
       },
       child: Container(
